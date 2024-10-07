@@ -11,6 +11,7 @@ int main() {
     // 1 block and 1 thread per block.
     //
 
+    // Call CUDA kernel
     cuda_hello<<<1,1>>>(); 
 
     //

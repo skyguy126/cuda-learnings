@@ -7,7 +7,10 @@
 #define MAX_ERR 1e-6
 
 __global__ void vector_add(float *out, float *a, float *b, int n) {
-    for(int i = 0; i < n; i++) {
+    int thread_index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int stride = blockDim.x;
+
+    for(int i = thread_index; i < n; i += stride) {
         out[i] = a[i] + b[i];
     }
 }
@@ -50,8 +53,21 @@ int main() {
     cudaMemcpy(d_a, a, sizeof(float) * N, cudaMemcpyHostToDevice);
     cudaMemcpy(d_b, b, sizeof(float) * N, cudaMemcpyHostToDevice);
 
+    //
+    // We need the -1 here because for example:
+    // Assume N = 512 and block_size = 128. Without
+    // the -1 the calculation would be (512 + 128) / 128
+    // which yields 5 and is wrong. We only need 4 threads
+    // to map out the entire dataset. If we use -1 the
+    // calculation instead becomes (512 + 128 - 1) / 128
+    // which correctly produces 4.
+    //
+
+    int block_size = 256;
+    int grid_size = ((N + block_size - 1) / block_size);
+
     // Call kernel.
-    vector_add<<<1,1>>>(d_out, d_a, d_b, N);
+    vector_add<<<grid_size,block_size>>>(d_out, d_a, d_b, N);
 
     //
     // Copy device memory to host.
