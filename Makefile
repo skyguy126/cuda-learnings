@@ -1,11 +1,20 @@
-.PHONY : all
-all : hello.out vector_add.out
+.PHONY : all clean
 
-hello.out: hello.cu
-	nvcc --compiler-options -Wall -o hello.out hello.cu
+# Automatically collect all .cu source files
+CU_FILES := $(wildcard *.cu)
 
-vector_add.out: vector_add.cu
-	nvcc --compiler-options -Wall -o vector_add.out vector_add.cu
+# List of .cu files to exclude
+EXCLUDE_CU := cuda_check.cu
+
+# Automatically generate corresponding .out files by changing .cu to .out
+OUT_FILES := $(patsubst %.cu, %.out, $(filter-out $(EXCLUDE_CU), $(CU_FILES)))
+
+# The all rule depends on all .out files
+all: $(OUT_FILES)
+
+# Generic rule for compiling .cu files into .out files
+%.out: %.cu
+	nvcc --compiler-options -Wall -o $@ $<
 
 clean:
 	rm -f *.out
