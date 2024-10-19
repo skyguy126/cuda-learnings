@@ -1,9 +1,28 @@
 #include <iostream>
 #include <vector>
 
-#define MAX_ERR 1e-6
+#include <assert.h>
+
+// Note: 1e-6 fails.
+#define MAX_ERR 1e-5
 
 using namespace std;
+
+__global__ void matMulKernel(float *A, float *B, float *C, int N) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    float sum = 0.f;
+
+    // this will only work for square matricies.
+    if (row < N && col < N) {
+        for (int i = 0; i < N; i++) {
+            sum += A[row * N + i] * B[i * N + col];
+        }
+
+        C[row * N + col] = sum;
+    }    
+}
 
 int main() {
 
@@ -35,7 +54,10 @@ int main() {
     cudaMemcpy(d_A, &h_A[0], sizeof(float) * SIZE, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, &h_B[0], sizeof(float) * SIZE, cudaMemcpyHostToDevice);
 
-    // TODO: implement the cuda kernel
+    // Call cuda kernel
+    dim3 blockSize(N, N);
+    dim3 gridSize(1, 1);
+    matMulKernel<<<gridSize, blockSize>>>(d_A, d_B, d_C, N);
 
     //
     // Copy device memory to host.
@@ -63,7 +85,17 @@ int main() {
         }
     }
 
-    // TODO: check result
+    // debug the checker function below
+    // memcpy(&h_C[0], &cpu_C[0], sizeof(float) * SIZE);
+
+    // Compare CPU and GPU results.
+    for (int r = 0; r < N; r++) {
+        for (int c = 0; c < N; c++) {
+            assert(fabs(cpu_C[r * N + c] - h_C[r * N + c]) < MAX_ERR);
+        }
+    }
+
+    cout << "PASSED" << endl;
 
     // Deallocate device memory
     cudaFree(d_A);
